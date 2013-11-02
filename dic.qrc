@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/thaiengdict.txt</file>
+        <file>resources/fileclose.png</file>
+    </qresource>
+</RCC>
