@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 #include <QApplication>
 #include <QFile>
+#include <QSettings>
 #include <QStandardItemModel>
 #include <QTextStream>
 #include <QtDebug>
@@ -10,9 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    ui->setupUi(this);
-
-    this->setWindowTitle("ThaiDictionary");
+    ui->setupUi(this); 
 
     model = new SortFilterProxyModel(this);
     model->setFilterKeyColumn(0);
@@ -24,13 +23,29 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tableView->horizontalHeader()->setVisible(false);
     ui->tableView->verticalHeader()->setVisible(false); // hide row numbers
 
+
+    this->setWindowTitle(qApp->applicationName());
+
+    timer = new QTimer(this);
+    timer->setInterval(50);
+    timer->setSingleShot(true);
+
     clipboard = QApplication::clipboard();
-    this->connect(clipboard,SIGNAL(changed(QClipboard::Mode)),this,SLOT(clipboardChanged(QClipboard::Mode)));
+
+    QSettings settings(qApp->organizationName(),qApp->applicationName());
+    this->restoreGeometry(settings.value("geometry",QByteArray()).toByteArray());
+
+    Qt::CheckState checkState = static_cast<Qt::CheckState>(settings.value("checkBox", Qt::Checked).toInt());
+    ui->checkBox->setCheckState(checkState);
+    this->checkBoxStateChanged(checkState); // the corresponding signal is not automatically called
 
     this->connect(ui->checkBox,SIGNAL(stateChanged(int)),this,SLOT(checkBoxStateChanged(int)));
+    connect(timer,SIGNAL(timeout()),this,SLOT(updateView()));
+
+    ui->lineEdit->setFocus();
 }
 
-/*
+/**
  * the text is either directly send to updateView when the clipboard mode is active or send via a signal from
  *  the lineEdit when the clipboard mode is disabled
  **/
@@ -39,11 +54,11 @@ void MainWindow::checkBoxStateChanged(int state)
     if(state == Qt::Checked)
     {
         connect(clipboard,SIGNAL(changed(QClipboard::Mode)),this,SLOT(clipboardChanged(QClipboard::Mode)));
-        disconnect(ui->lineEdit,SIGNAL(textChanged(QString)),this,SLOT(updateView()));
+        disconnect(ui->lineEdit,SIGNAL(textChanged(QString)),this,SLOT(startUpdateViewTimer(QString)));
     }
     else
     {
-        connect(ui->lineEdit,SIGNAL(textChanged(QString)),this,SLOT(updateView(QString)));
+        connect(ui->lineEdit,SIGNAL(textChanged(QString)),this,SLOT(startUpdateViewTimer(QString)));
         disconnect(clipboard,SIGNAL(changed(QClipboard::Mode)),this,SLOT(clipboardChanged(QClipboard::Mode)));
     }
 }
@@ -55,18 +70,19 @@ void MainWindow::clipboardChanged(QClipboard::Mode mode)
     QString text = clipboard->text(QClipboard::Selection).trimmed();
     ui->lineEdit->setText(text);
 
-    updateView(text);
+    startUpdateViewTimer(text);
 }
 
-void MainWindow::updateView(const QString& text)
+
+
+void MainWindow::updateView()
 {
-    if(text.isEmpty()) // would load complete dictionary
+    if(currentSearchText.isEmpty()) // would load complete dictionary
         return;
 
-
-    model->setFilterStartsWith(text);
+    model->setFilterStartsWith(currentSearchText);
     model->invalidate();
-    if(text.length() >1)
+    if(currentSearchText.length() >1)
     {
         // slower for more rows
         ui->tableView->resizeRowsToContents();
@@ -74,11 +90,25 @@ void MainWindow::updateView(const QString& text)
     }
 }
 
+/**
+  * the timer calls updateView a few ms after the last keypress to avoid overloading the gui thread with calls to updateView()
+  * when multiple key events are fired in rapid succession
+ */
+void MainWindow::startUpdateViewTimer(const QString &text)
+{
+    currentSearchText = text;
+    timer->stop();
+    timer->start();
+}
+
 
 QAbstractItemModel *MainWindow::modelFromFile(const QString& fileName)
 {
     QFile file(fileName);
-    Q_ASSERT(file.open(QFile::ReadOnly));
+    if(!file.open(QFile::ReadOnly))
+    {
+        qDebug("Error in MainWindow::modelFromFile : could not open file");
+    }
 
     QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
     QList<QStringList> lines;
@@ -140,6 +170,14 @@ QAbstractItemModel *MainWindow::modelFromFile(const QString& fileName)
 
     return m;
 }
+
+void MainWindow::closeEvent(QCloseEvent *event)
+ {
+     QSettings settings(qApp->organizationName(),qApp->applicationName());
+     settings.setValue("geometry", saveGeometry());
+     settings.setValue("checkBox", ui->checkBox->checkState());
+     QMainWindow::closeEvent(event);
+ }
 
 MainWindow::~MainWindow()
 {
