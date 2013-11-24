@@ -8,6 +8,10 @@
 #include <QClipboard>
 #include <QSortFilterProxyModel>
 #include <QTimer>
+#include <QHttp>
+#include <QBuffer>
+#include <phonon/audiooutput.h>
+#include <phonon/mediaobject.h>
 
 
 namespace Ui {
@@ -29,6 +33,8 @@ private slots:
     void updateView();
     void startUpdateViewTimer(const QString &text);
     void checkBoxStateChanged(int state);
+    void play();
+    void audioDownloadFinished(bool);
 private:
     QAbstractItemModel *modelFromFile(const QString &fileName);
 
@@ -38,6 +44,11 @@ private:
     SortFilterProxyModel *model;
     QTimer *timer;
     QString currentSearchText;
+    Phonon::MediaObject *mediaObject;
+    Phonon::AudioOutput *audioOutput;
+    QHttp *http;
+    QByteArray * array;
+    QBuffer * buffer;
 };
 
 #endif // MAINWINDOW_H

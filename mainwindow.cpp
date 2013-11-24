@@ -1,11 +1,12 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QApplication>
+#include <QBuffer>
 #include <QFile>
+#include <QFileInfo>
 #include <QSettings>
 #include <QStandardItemModel>
 #include <QTextStream>
-#include <QtDebug>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -39,8 +40,20 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->checkBox->setCheckState(checkState);
     this->checkBoxStateChanged(checkState); // the corresponding signal is not automatically called
 
+    mediaObject = new Phonon::MediaObject(this);
+    audioOutput = new Phonon::AudioOutput(Phonon::MusicCategory, this);
+    Phonon::createPath(mediaObject, audioOutput);
+
+    buffer = new QBuffer(this);
+    array = 0;
+
+    http = new QHttp("translate.google.com");
+    this->connect(http,SIGNAL(done(bool)),this,SLOT(audioDownloadFinished(bool)));
+
     this->connect(ui->checkBox,SIGNAL(stateChanged(int)),this,SLOT(checkBoxStateChanged(int)));
     connect(timer,SIGNAL(timeout()),this,SLOT(updateView()));
+
+    this->connect(ui->playButton,SIGNAL(clicked()),this,SLOT(play()));
 
     ui->lineEdit->setFocus();
 }
@@ -62,6 +75,49 @@ void MainWindow::checkBoxStateChanged(int state)
         disconnect(clipboard,SIGNAL(changed(QClipboard::Mode)),this,SLOT(clipboardChanged(QClipboard::Mode)));
     }
 }
+
+/**
+ * @brief MainWindow::play
+ *
+ * selects the selected row's first column's entry and sends a http download reqest to google translate's tts engine
+ */
+void MainWindow::play()
+{
+    QItemSelectionModel *selectionModel = ui->tableView->selectionModel();
+    QList<QModelIndex> list = selectionModel->selectedIndexes();
+    if(list.isEmpty())
+        return;
+
+    QModelIndex index = model->index(list.first().row(),0);
+
+    QString voice = "th";
+
+    QByteArray ContentData;
+    ContentData += "ie=UTF-8&q=" + QUrl::toPercentEncoding(model->data(index).toString()) + "&tl=" + voice;
+
+    QHttpRequestHeader Header;
+    Header.addValue("Host", "translate.google.com");
+
+    Header.setContentLength(ContentData.length());
+    Header.setRequest("POST", "/translate_tts", 1, 1);
+
+    http->request(Header, ContentData);
+}
+
+/**
+ * @brief MainWindow::audioDownloadFinished
+ * plays the mp3 audio file via phonon after it has been downloaded
+ */
+void MainWindow::audioDownloadFinished(bool)
+{
+    delete array;
+    array = new QByteArray(http->readAll());
+    buffer->close();
+    buffer->setBuffer(array);
+    mediaObject->setCurrentSource(Phonon::MediaSource(buffer));
+    mediaObject->play();
+}
+
 
 void MainWindow::clipboardChanged(QClipboard::Mode mode)
 {
