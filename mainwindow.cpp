@@ -126,7 +126,7 @@ void MainWindow::onAddButtonClicked()
         return;
 
     QString wordToBeAdded = model->data(model->index(list.first().row(),0)).toString();
-    QString translationToBeAdded = model->data(model->index(list.first().row(),1)).toString();
+    QString translationToBeAdded = model->data(model->index(list.first().row(),1)).toString().remove(QChar('\n'));
 
     QFile data(path + "/wordlist.txt");
     if (data.open(QFile::ReadOnly) == true) // file may not yet exist when this method is called the first time
@@ -221,7 +221,8 @@ QAbstractItemModel *MainWindow::modelFromFile(const QString& fileName)
             QStringList row = line.split(QChar('\t'));
             QString& rowLast = row.last();
 
-            const int maxLength = 48;
+            // TODO this length should adjust itself to the window length
+            const int maxLength = 64;
             if(rowLast.length() > maxLength)
             { // QRegExp("[\s\\;]")
                 int index = rowLast.indexOf(QRegExp("[\\ \\;]"),maxLength);
