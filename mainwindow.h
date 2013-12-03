@@ -33,7 +33,8 @@ private slots:
     void updateView();
     void startUpdateViewTimer(const QString &text);
     void checkBoxStateChanged(int state);
-    void play();
+    void onPlayButtonClicked();
+    void onAddButtonClicked();
     void audioDownloadFinished(bool);
 private:
     QAbstractItemModel *modelFromFile(const QString &fileName);

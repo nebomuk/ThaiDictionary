@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <QStandardItemModel>
 #include <QTextStream>
+#include <QDir>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -53,7 +54,10 @@ MainWindow::MainWindow(QWidget *parent) :
     this->connect(ui->checkBox,SIGNAL(stateChanged(int)),this,SLOT(checkBoxStateChanged(int)));
     connect(timer,SIGNAL(timeout()),this,SLOT(updateView()));
 
-    this->connect(ui->playButton,SIGNAL(clicked()),this,SLOT(play()));
+    this->connect(ui->playButton,SIGNAL(clicked()),this,SLOT(onPlayButtonClicked()));
+
+    this->connect(ui->addButton,SIGNAL(clicked()),this,SLOT(onAddButtonClicked()));
+
 
     ui->lineEdit->setFocus();
 }
@@ -81,7 +85,7 @@ void MainWindow::checkBoxStateChanged(int state)
  *
  * selects the selected row's first column's entry and sends a http download reqest to google translate's tts engine
  */
-void MainWindow::play()
+void MainWindow::onPlayButtonClicked()
 {
     QItemSelectionModel *selectionModel = ui->tableView->selectionModel();
     QList<QModelIndex> list = selectionModel->selectedIndexes();
@@ -102,6 +106,46 @@ void MainWindow::play()
     Header.setRequest("POST", "/translate_tts", 1, 1);
 
     http->request(Header, ContentData);
+}
+
+/**
+ * @brief MainWindow::onAddButtonClicked
+ *
+ *   adds the currently selected word to the list in "/.local/share/" + qApp->applicationName() +  "/wordlist.txt"
+ *   the word is only added if it does not already exist in the list
+ */
+void MainWindow::onAddButtonClicked()
+{
+    QString path = QDir::homePath() + "/.local/share/" + qApp->applicationName();
+    if(!QDir(path).exists())
+        QDir().mkpath(path);
+
+    QItemSelectionModel *selectionModel = ui->tableView->selectionModel();
+    QList<QModelIndex> list = selectionModel->selectedIndexes();
+    if(list.isEmpty())
+        return;
+
+    QString wordToBeAdded = model->data(model->index(list.first().row(),0)).toString();
+    QString translationToBeAdded = model->data(model->index(list.first().row(),1)).toString();
+
+    QFile data(path + "/wordlist.txt");
+    if (data.open(QFile::ReadOnly) == true) // file may not yet exist when this method is called the first time
+    {
+        QTextStream * in = new QTextStream(&data);
+        if(in->readAll().contains(wordToBeAdded))
+            return;
+        delete in;
+    }
+    data.close();
+
+    if (data.open(QFile::WriteOnly | QFile::Append) == false)
+    {
+        qDebug("Error writing file: wordlist.txt");
+        return;
+    }
+    QTextStream out(&data);
+
+    out << wordToBeAdded << "\t" << translationToBeAdded << endl;
 }
 
 /**
