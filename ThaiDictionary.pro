@@ -15,11 +15,13 @@ TEMPLATE = app
 SOURCES += main.cpp\
         mainwindow.cpp \
     sortfilterproxymodel.cpp \
-    lineedit.cpp
+    lineedit.cpp \
+    tts.cpp
 
 HEADERS  += mainwindow.h \
     sortfilterproxymodel.h \
-    lineedit.h
+    lineedit.h \
+    tts.h
 
 FORMS    += mainwindow.ui
 

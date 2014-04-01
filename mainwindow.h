@@ -8,11 +8,7 @@
 #include <QClipboard>
 #include <QSortFilterProxyModel>
 #include <QTimer>
-#include <QHttp>
-#include <QBuffer>
-#include <phonon/audiooutput.h>
-#include <phonon/mediaobject.h>
-
+#include "tts.h"
 
 namespace Ui {
 class MainWindow;
@@ -35,21 +31,17 @@ private slots:
     void checkBoxStateChanged(int state);
     void onPlayButtonClicked();
     void onAddButtonClicked();
-    void audioDownloadFinished(bool);
+
 private:
     QAbstractItemModel *modelFromFile(const QString &fileName);
-
+    TTS tts;
     Ui::MainWindow *ui;
     QClipboard *clipboard;
     void dataFromFile(const QString &fileName);
     SortFilterProxyModel *model;
     QTimer *timer;
     QString currentSearchText;
-    Phonon::MediaObject *mediaObject;
-    Phonon::AudioOutput *audioOutput;
-    QHttp *http;
-    QByteArray * array;
-    QBuffer * buffer;
+
 };
 
 #endif // MAINWINDOW_H
